@@ -1,0 +1,101 @@
+---
+title: "Statistical Inference Course Project - Second Part by Daniel Molnar"
+output: html_document
+---
+
+Overview
+=
+
+I analyze and will try to get to conclusions on the ToothGrowth data in the R datasets package. 
+
+Load
+=
+
+Load the ToothGrowth data and perform some basic exploratory data analyses. 
+
+```{r}
+library(datasets)
+data <- ToothGrowth
+data$dose <- as.factor(as.numeric(data$dose))
+```
+
+According to official description this data contains the length of odontoblasts (teeth) in each of 10 guinea pigs at each of three dose levels of Vitamin C (0.5, 1, and 2 mg) with each of two delivery methods (orange juice or ascorbic acid).
+
+```{r}
+str(data)
+```
+
+```{r}
+summary(data)
+```
+
+The data seems to confirm the description.
+
+Basic Summary
+=
+
+I provide a basic summary of the data in Figure 1. It seems that generally speaking bigger doses lead to bigger teeth no matter what's the delivery method. Let's have these two as hypotheses: ~linear relation in length and in dose, delivery method does not matter.
+
+Comparison
+=
+
+I decided to use the unequal variance t test, also called the Welch t test. It assues that both groups of data are sampled from Gaussian populations, but does not assume those two populations have the same standard deviation.
+
+My comparison has some assumptions -- see them in the appendix. First let's test the whole dataset. The null hypothesis is that it does not matter which delivery method has been used.
+
+```{r}
+t.test(len ~ supp, data = data)
+```
+
+The p-value is bigger than 0.05 and the confidence interval contains zero. We cannot reject the null hypothesis.
+
+Let's subsample the data and check by dose whether it does matter -- we don't care about delivery method. Null hypothesis is dosing does not matter.
+
+```{r}
+sub1 <- subset(data, dose != 0.5)
+t.test(len ~ dose, data = sub1, paired = F, var.equal = F)
+
+sub2 <- subset(data, dose != 1.0)
+t.test(len ~ dose, data = sub2, paired = F, var.equal = F)
+
+sub2 <- subset(data, dose != 2.0)
+t.test(len ~ dose, data = sub2, paired = F, var.equal = F)
+```
+
+P-value is smaller than 0.05 and the confidence interval does not contain zero for all comparisons. 
+
+I can reject the null hypothesis and also establish that increasing the dose level leads to an increase in tooth length.
+
+Conclusion
+=
+
+Supplement type has no significant effect on tooth growth.
+
+Inreasing the dose level leads to increased tooth growth up to a limit.
+
+\newpage
+
+Appendix
+=
+
+Figure 1
+==
+
+```{r, out.width = '600px', out.height = '600px'}
+# show them on a figure
+library(ggplot2)
+ggplot(data, aes(x=dose, y=len)) + 
+    ylab("Teeth length")+
+    ggtitle("Figure 1 - Overview of ToothGrowth data") +
+    geom_boxplot()+
+    facet_wrap( ~ supp)
+```
+
+Assumptions
+=
+
+* The experiment had random assignment on guinea pigs to different doses and delivery types to control for confounders that might affect the outcome.
+
+* Members of the sample population are representative of the entire population of guinea pigs. This assumption allows us to generalize the results.
+
+* The variances are assumed to be different for the two groups being compared in the t-tests.

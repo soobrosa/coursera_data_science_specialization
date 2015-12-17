@@ -1,0 +1,180 @@
+---
+title: "Extreme wind events cause most trouble to humans and the economy"
+output: html_document
+---
+
+Synopsis: this is a quick top-down analysis on the types of events with the most human and material costs in the US. The analysis was delivered on year and state granularity. Tornados top both types of harm -- thunderstorm winds add to the injuries --, (excessive) heat and flash floods also contribute heavily to the toll. The top states affected by the fatalities and injuries are Illinois, Texas, Pennsylvania, Alabama, Missouri and Florida -- states in the South and in the middle of the US. Fatalities and injuries caused by these events heavily increased throughout the years. Hurricane damages crops like nothing else, while storms and flood destroys the most property. The top states affected by the damage on crops are Florida, North Carolina and Puerto Rico while Mississippi, California and Alabama have the most property damage. Damage caused by mega-events is a relatively new phenomenon and it seems to be getting more frequent -- even as the 2006 Columbia hail storm and the whole of Katrina is missing from the dataset.
+
+Data Processing
+===============
+
+I loaded the dataset and considering the total size subsetted to records where there any injuries or fatalities or the damage to properties or crops could have been measured in billions of USD - aka the mega-events.
+
+Caveat: as the [Storm Events database](https://ire.org/nicar/database-library/databases/storm-events/) points out the 2006 Columbia hail storm and the whole damage of Katrina is missing from the dataset.
+
+I subsetted the data further so I can aggregate on years and states where the events happened and calculated a total damage column adding property and crop damages. Also removed the original datafile to save memory and loaded the libraries needed for analysis.
+
+```{r}
+setwd("/Users/soobrosa/Desktop/coursera/repdata_3")
+data <- read.csv(bzfile("repdata-data-StormData.csv.bz2"), stringsAsFactors=F)
+
+harmful <- subset(data, FATALITIES != 0 | INJURIES != 0, select=c(BGN_DATE, STATE, EVTYPE, FATALITIES, INJURIES))
+
+harmful$BGN_DATE <- as.numeric(format(as.Date(as.character(harmful$BGN_DATE),"%m/%d/%Y %H:%M:%S"), "%Y"))
+
+costly <- subset(data, PROPDMGEXP == "B" | CROPDMGEXP == "B", select=c(BGN_DATE, STATE, EVTYPE, PROPDMG, CROPDMG))
+
+costly$BGN_DATE <- as.numeric(format(as.Date(as.character(costly$BGN_DATE),"%m/%d/%Y %H:%M:%S"), "%Y"))
+
+costly$DMG <- costly$PROPDMG + costly$CROPDMG
+
+rm(data)
+```
+
+```{r message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+Results
+=======
+
+1. Events harmful to health
+---------------------------
+
+Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+Let's explore the top 10 event types that are fatal and caused injuries.
+
+```{r}
+top <- 
+  harmful %>% 
+  group_by(EVTYPE) %>% 
+  summarize(no_of_fatalities = sum(FATALITIES),
+            no_of_injuries = sum(INJURIES)) %>%
+  arrange(desc(no_of_fatalities))
+top[1:10, ]
+```
+
+Seven of the EVTYPEs are common, and as far as the data is pretty much inconsistent using EVTYPE names let's try to collapse also similar EVTYPE names -- except HEAT and FLOOD as they're too short to fuzzy match them.
+
+```{r}
+normalized = c("TORNADO", "FLASH FLOOD", "EXCESSIVE HEAT", "LIGHTNING", "TSTM WIND")
+
+for (item in normalized){
+  harmful[agrep(item, harmful$EVTYPE), 3] <- item
+}
+
+harmful[agrep("THUNDERSTORM WIND", harmful$EVTYPE), 3] <- "TSTM WIND"
+
+```
+
+Let's see the fixed list of the top 10 event types that are fatal or caused injuries. Tornados top both types of harm -- thunderstorm winds add to the injuries --, (excessive) heat and flash floods also contribute heavily to the toll.
+
+```{r}
+top <- 
+  harmful %>% 
+  group_by(EVTYPE) %>% 
+  summarize(no_of_fatalities = sum(FATALITIES),
+            no_of_injuries = sum(INJURIES)) %>%
+  arrange(desc(no_of_fatalities))
+top[1:10, ]
+```
+
+The top states affected by the fatalities and injuries are Illinois, Texas, Pennsylvania, Alabama, Missouri and Florida -- states in the South and in the middle of the US.
+
+```{r}
+sums <- harmful %>%
+  group_by(STATE) %>%
+  summarize(no_of_fatalities = sum(FATALITIES),
+            no_of_injuries = sum(INJURIES)) %>%
+  arrange(desc(no_of_fatalities))
+sums[1:10, ]
+```
+
+Fatalities and injuries caused by these events heavily increased throughout the years.
+
+```{r}
+sums <- harmful %>%
+  group_by(BGN_DATE) %>%
+  summarise(fatalities = sum(FATALITIES, na.rm = TRUE),
+            injuries = sum(INJURIES, na.rm = TRUE))
+
+sums_to_plot <- sums %>% gather(variable, value, -BGN_DATE)
+ggplot(sums_to_plot, aes(BGN_DATE, value, colour=variable)) + 
+  geom_line() +
+  scale_colour_manual(values=c("red", "blue")) +
+  xlab('Years') +
+  ylab('Number of people affected') +
+  labs(title = "Fatalities and injuries over the years", color="Type of effect")
+```
+
+2. Events with damage
+---------------------
+
+Across the United States, which types of events have the greatest economic consequences?
+
+Let's explore the top 10 event types by damage.
+
+```{r}
+top <- costly %>%
+  group_by(EVTYPE) %>%
+  summarize(total_damage = sum(DMG),
+            property_damage = sum(PROPDMG),
+            crop_damage = sum(CROPDMG)) %>%
+  arrange(desc(total_damage))
+top[1:10, ]
+```
+
+Collapse EVTYPE names.
+
+```{r}
+normalized = c("HURRICANE", "FLOOD")
+
+for (item in normalized){
+  costly[agrep(item, costly$EVTYPE), 3] <- item
+}
+
+```
+
+Let's see the fixed list of the top 10 event types by damage. Hurricane damages crops like nothing else, while storms and flood destroys the most property.
+
+```{r}
+top <- costly %>%
+  group_by(EVTYPE) %>%
+  summarize(total_damage = sum(DMG),
+            property_damage = sum(PROPDMG),
+            crop_damage = sum(CROPDMG)) %>%
+  arrange(desc(total_damage))
+top[1:10, ]
+```
+
+The top states affected by the damage on crops are Florida, North Carolina and Puerto Rico while Mississippi, California and Alabama have the most property damage.
+
+```{r}
+sums <- costly %>%
+  group_by(STATE) %>%
+  summarize(total_damage = sum(DMG),
+            property_damage = sum(PROPDMG),
+            crop_damage = sum(CROPDMG)) %>%
+  arrange(desc(total_damage))
+sums[1:10, ]
+```
+
+Damage caused by mega-events is a relatively new phenomenon and it seems to be getting more frequent -- even as the 2006 Columbia hail storm and the whole of Katrina is missing from the dataset.
+
+```{r}
+sums <- costly %>%
+  group_by(BGN_DATE) %>%
+  summarise(property_damage = sum(PROPDMG),
+  crop_damage = sum(CROPDMG))
+
+sums_to_plot <- sums %>% gather(variable, value, -BGN_DATE)
+ggplot(sums_to_plot, aes(BGN_DATE, value, colour=variable)) + 
+  geom_line() +
+  scale_colour_manual(values=c("red", "blue")) +
+  xlab('Years') +
+  ylab('Damage in billion USD') +
+  labs(title = "Damage caused over the years", color="Type of damage")
+```

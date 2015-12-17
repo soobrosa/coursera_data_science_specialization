@@ -1,0 +1,111 @@
+---
+title: "Statistical Inference Course Project - First Part by Daniel Molnar"
+output: html_document
+---
+
+Overview
+=
+
+The first part of the Statistical Inference Course Project is a simulation exercise. In this project I will investigate the exponential distribution in R and compare it with the Central Limit Theorem with the distribution of averages of 40 exponentials.
+
+Simulations
+=
+
+The exponential distribution can be simulated in R with `rexp(n, lambda)` where lambda is the rate parameter. The mean of exponential distribution is `1/lambda` and the standard deviation is also `1/lambda`. I set `lambda = 0.2` for all of the simulations. I will investigate the distribution of averages of 40 exponential with a thousand simulations.
+
+```{r}
+# set seed for reproducability
+set.seed(642531)
+
+# defaults
+lambda <- 0.2
+samples <- 40
+simulations <- 1000
+
+# here we go with the simulation
+simulated_exponentials <- replicate(simulations, rexp(samples, lambda))
+```
+
+Sample Mean versus Theoretical Mean
+=
+
+I show the sample mean and compare it to the theoretical mean of the distribution.
+
+```{r}
+# calculate the means of from the simulation
+simulation_means <- apply(simulated_exponentials, 2, mean)
+
+# calculate the sample mean
+sample_mean <- mean(simulation_means)
+sample_mean
+
+# calculate the theoretical mean
+theoretical_mean <- 1/lambda
+theoretical_mean
+```
+
+The sample mean is 5.001233 while the theoretical mean is 5. Figure 1 shows that the blue theoretical mean technically hides the green sample mean on the figure they are so close.
+
+Sample Variance versus Theoretical Variance
+=
+
+I show how variable the sample is and compare it to the theoretical variance of the distribution.
+
+```{r}
+# calculate the variance of the sample
+simulation_standard_deviation <- sd(simulation_means)
+simulation_variance <- simulation_standard_deviation^2
+
+# calculate the theoretical variance 
+theoretical_standard_deviation <- (1/lambda)/sqrt(samples)
+theoretical_variance <- ((1/lambda)*(1/sqrt(samples)))^2
+
+simulation_standard_deviation
+
+theoretical_standard_deviation
+
+simulation_variance
+
+theoretical_variance
+```
+
+The variance of the simulation is 0.5836537 while the theoretical variance is 0.625. The standard deviation of the simulation is 0.7639723 while the theoretical standard deviation is 0.7905694. 
+
+Distribution
+=
+
+I show that the distribution is approximately normal.
+
+Figure 2 shows that the normal distribution is pretty close to the histogram.
+
+The almost straight line shows on figure 3 shows that due to the central limit theorem the distribution is close to a normal distribution.
+
+\newpage
+
+Appendix
+=
+
+Figure 1
+==
+
+```{r, out.width = '600px', out.height = '600px'}
+# show them on a figure
+library(ggplot2)
+p <- ggplot(data = data.frame(simulation_means), aes(simulation_means)) + geom_histogram(colour="black", fill="white", binwidth = .2)                                                                                     
+p + geom_vline(xintercept = sample_mean, colour = "green") + geom_vline(xintercept = theoretical_mean, colour = "blue") + ggtitle("Distribution of Means in the Simulations") + xlab("means")
+```
+
+Figure 2
+==
+
+```{r, out.width = '600px', out.height = '600px'}
+p <- ggplot(data = data.frame(simulation_means), aes(x = simulation_means)) + geom_histogram(aes(y = ..density..), colour="black", fill="white", binwidth = .2)                                                                                     
+p + stat_function(fun = dnorm, arg = list(mean = theoretical_mean, sd = theoretical_standard_deviation)) + ggtitle("Simulation versus Theory") + xlab("means")
+```
+
+Figure 3
+==
+
+```{r, out.width = '600px', out.height = '600px'}
+qplot(sample = simulation_means) + geom_abline(intercept=5, slope=1, alpha=0.5)
+```
